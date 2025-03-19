@@ -18,13 +18,9 @@ import subprocess
 def download_video():
     try:
         output_directory = "/Users/clarkmurray/Movies/YouTube Downloads"
-        custom_file_name = ""
 
         video_url = input("Input YouTube video URL: ")
-        use_custom_file_name = input("Would you like to give the file a custom ? (Y/N): ").lower().strip() == 'y'
-
-        if (use_custom_file_name):
-            custom_file_name = input("Enter a custom file name: ")
+        custom_file_name = get_custom_file_name_input()
 
         youtube_video = YouTube(video_url, on_progress_callback=on_progress)
         youtube_video_stream = youtube_video.streams.get_highest_resolution(False)
@@ -33,31 +29,44 @@ def download_video():
 
         print("Downloading \"" + youtube_video.title + "\" from YouTube in " + youtube_video_stream.resolution + " resolution")
 
-        if not youtube_video_stream.is_progressive: # stream is adaptive
+        if youtube_video_stream.is_adaptive:
+            audio_stream = get_adaptive_audio_stream(youtube_video)
+            video_path = download_adaptive_video(youtube_video_stream)
+            audio_path = download_adaptive_audio(audio_stream)
             output_path = output_directory + "/" + file_name_with_extension
-            combine_video(youtube_video, youtube_video_stream, output_path)
-            print("\nDownload and combination completed!")
-        else: # stream is progressive
+            combine_video_and_audio(video_path, audio_path, output_path)
+            cleanup(video_path, audio_path)
+        else:
             youtube_video_stream.download(output_path=output_directory, filename=file_name_with_extension)
-            print("\nDownload completed!")
-
+        print("\nDownload completed!")
     except Exception as e:
         print(f"An error occurred: {e}")
 
+def get_custom_file_name_input():
+    custom_file_name = ""
+    use_custom_file_name = input("Would you like to give the file a custom ? (Y/N): ").lower().strip() == 'y'
+    if (use_custom_file_name):
+        custom_file_name = input("Enter a custom file name: ")
+    return custom_file_name
 
-def combine_video(youtube_video, youtube_video_stream, output_path):
-
+def get_adaptive_audio_stream(youtube_video):
     audio_stream = youtube_video.streams.filter(only_audio=True).order_by('abr').desc().first()
     print(f"Selected audio stream: {audio_stream.abr}")
-
     if not audio_stream:
         raise Exception('No suitable audio stream found.')
+    return audio_stream
 
-    video_path = youtube_video_stream.download(filename="target/video.mp4")
+def download_adaptive_video(youtube_video_stream):
+    video_path = youtube_video_stream.download(output_path="./target", filename="target/video.mp4")
     print(f"Video stream downloaded: {video_path}")
-    audio_path = audio_stream.download(filename="target/audio.mp4")
-    print(f"Audio stream downloaded: {audio_path}")
+    return video_path
 
+def download_adaptive_audio(audio_stream):
+    audio_path = audio_stream.download(output_path="./target",filename="target/audio.mp4")
+    print(f"Audio stream downloaded: {audio_path}")
+    return audio_path
+
+def combine_video_and_audio(video_path, audio_path, output_path):
     subprocess.run([
         'ffmpeg',
         '-i', video_path,
@@ -69,8 +78,11 @@ def combine_video(youtube_video, youtube_video_stream, output_path):
     ])
     print(f"Combined video saved: {output_path}")
 
+def cleanup(video_path, audio_path):
     os.remove(video_path)
     os.remove(audio_path)
+
+
 
 if __name__ == "__main__":
     download_video()

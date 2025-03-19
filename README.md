@@ -1,6 +1,6 @@
 Run: `python3 youtubeDownloader.py`
 
 Dependencies
-- pytubefix
+- pytubefix (`pip3 install pytubefix`)
 - ffmpeg (`brew install ffmpeg`)
 
